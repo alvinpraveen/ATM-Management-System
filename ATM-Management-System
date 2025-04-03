@@ -1,0 +1,189 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
+#include <time.h>
+
+#define MAX_ACCOUNTS 100
+#define FILENAME "accounts.dat"
+#define MAX_PIN_ATTEMPTS 3
+
+struct Account {
+    int accountNumber;
+    char name[50];
+    int pin;
+    double balance;
+};
+
+struct Account accounts[MAX_ACCOUNTS];
+int numAccounts = 0;
+
+void saveAccounts() {
+    FILE *file = fopen(FILENAME, "wb");
+    if (file == NULL) {
+        printf("Error opening file for writing.\n");
+        return;
+    }
+    fwrite(&numAccounts, sizeof(int), 1, file);
+    fwrite(accounts, sizeof(struct Account), numAccounts, file);
+    fclose(file);
+}
+
+void loadAccounts() {
+    FILE *file = fopen(FILENAME, "rb");
+    if (file == NULL) {
+        printf("No existing account data found.\n");
+        return;
+    }
+    fread(&numAccounts, sizeof(int), 1, file);
+    fread(accounts, sizeof(struct Account), numAccounts, file);
+    fclose(file);
+}
+
+int findAccount(int accountNumber) {
+    for (int i = 0; i < numAccounts; i++) {
+        if (accounts[i].accountNumber == accountNumber) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+void createAccount() {
+    if (numAccounts >= MAX_ACCOUNTS) {
+        printf("Maximum number of accounts reached.\n");
+        return;
+    }
+
+    struct Account newAccount;
+    printf("Enter name: ");
+    scanf("%s", newAccount.name);
+    printf("Enter initial PIN: ");
+    scanf("%d", &newAccount.pin);
+    printf("Enter initial balance: ");
+    scanf("%lf", &newAccount.balance);
+
+    srand(time(NULL));
+    newAccount.accountNumber = rand() % 900000 + 100000;  // 6-digit account number
+
+    accounts[numAccounts++] = newAccount;
+    saveAccounts();
+
+    printf("Account created successfully. Your account number is: %d\n", newAccount.accountNumber);
+}
+
+bool login(int *accountIndex) {
+    int accountNumber, pin, attempts = 0;
+    printf("Enter account number: ");
+    scanf("%d", &accountNumber);
+
+    *accountIndex = findAccount(accountNumber);
+    if (*accountIndex == -1) {
+        printf("Account not found.\n");
+        return false;
+    }
+
+    while (attempts < MAX_PIN_ATTEMPTS) {
+        printf("Enter PIN: ");
+        scanf("%d", &pin);
+
+        if (accounts[*accountIndex].pin == pin) {
+            return true;
+        }
+
+        printf("Incorrect PIN. %d attempts remaining.\n", MAX_PIN_ATTEMPTS - attempts - 1);
+        attempts++;
+    }
+
+    printf("Too many incorrect attempts. Account locked.\n");
+    return false;
+}
+
+void checkBalance(int accountIndex) {
+    printf("Your balance is: $%.2f\n", accounts[accountIndex].balance);
+}
+
+void withdraw(int accountIndex) {
+    double amount;
+    printf("Enter amount to withdraw: $");
+    scanf("%lf", &amount);
+
+    if (amount > accounts[accountIndex].balance) {
+        printf("Insufficient funds.\n");
+    } else {
+        accounts[accountIndex].balance -= amount;
+        printf("Withdrawal successful. New balance: $%.2f\n", accounts[accountIndex].balance);
+        saveAccounts();
+    }
+}
+void deposit(int accountIndex) {
+    double amount;
+    printf("Enter amount to deposit: $");
+    scanf("%lf", &amount);
+
+    accounts[accountIndex].balance += amount;
+    printf("Deposit successful. New balance: $%.2f\n", accounts[accountIndex].balance);
+    saveAccounts();
+}
+
+void displayMenu() {
+    printf("\nATM Menu:\n");
+    printf("1. Check Balance\n");
+    printf("2. Withdraw\n");
+    printf("3. Deposit\n");
+    printf("4. Exit\n");
+    printf("Enter your choice: ");
+}
+
+int main() {
+    loadAccounts();
+
+    int choice;
+    printf("Welcome to the ATM Management System\n");
+
+    while (1) {
+        printf("\n1. Create Account\n");
+        printf("2. Login\n");
+        printf("3. Exit\n");
+        printf("Enter your choice: ");
+        scanf("%d", &choice);
+
+        if (choice == 1) {
+            createAccount();
+        } else if (choice == 2) {
+            int accountIndex;
+            if (login(&accountIndex)) {
+                printf("Login successful.\n");
+                
+                while (1) {
+                    displayMenu();
+                    scanf("%d", &choice);
+
+                    switch (choice) {
+                        case 1:
+                            checkBalance(accountIndex);
+                            break;
+                        case 2:
+                            withdraw(accountIndex);
+                            break;
+                        case 3:
+                            deposit(accountIndex);
+                            break;
+                        case 4:
+                            printf("Thank you for using our ATM. Goodbye!\n");
+                            return 0;
+                        default:
+                            printf("Invalid choice. Please try again.\n");
+                    }
+                }
+            }
+        } else if (choice == 3) {
+            printf("Thank you for using our ATM Management System. Goodbye!\n");
+            break;
+        } else {
+            printf("Invalid choice. Please try again.\n");
+        }
+    }
+
+    return 0;
+}
